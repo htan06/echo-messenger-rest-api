@@ -8,23 +8,23 @@ import (
 
 	"github.com/htan06/echo-messenger-rest-api/internal/apperr"
 	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/model"
-	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/secure"
+	"github.com/htan06/echo-messenger-rest-api/internal/security"
 )
 
 type AuthenticationService struct {
 	userRepo       UserReposiotry
 	cacheRepo      CacheRepository
 	emailOTPSender EmailOTPSender
-	jwtProvider    *secure.JWTProvier
-	secureRand     *secure.OTPProvider
+	jwtProvider    *security.JWTProvier
+	secureRand     *security.OTPProvider
 }
 
 func NewAuthenticationService(
 	userRepo UserReposiotry,
 	cacheRepo CacheRepository,
 	emailOTPSender EmailOTPSender,
-	jwtProvider *secure.JWTProvier,
-	secureRand *secure.OTPProvider,
+	jwtProvider *security.JWTProvier,
+	secureRand *security.OTPProvider,
 ) *AuthenticationService {
 	return &AuthenticationService{
 		userRepo:       userRepo,
@@ -78,6 +78,10 @@ func (as *AuthenticationService) VerifyOTP(ctx context.Context, email string, re
 
 	if err != nil {
 		return TokenResp{}, fmt.Errorf("AuthenticationService[VerifyOTP]: %w", err)
+	}
+
+	if user.Status != model.UserActive {
+		return TokenResp{}, apperr.NewAppError(apperr.UserNonActive)
 	}
 
 	accessToken, err := as.jwtProvider.GenerateAccessToken(user)

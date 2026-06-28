@@ -6,7 +6,7 @@ type UserStatus string
 
 const (
 	UserLocked UserStatus = "LOCKED"
-	UserActive UserStatus = "LOCKED"
+	UserActive UserStatus = "ACTIVE"
 )
 
 type User struct {

@@ -1,15 +1,17 @@
-package secure
+package security
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/htan06/echo-messenger-rest-api/internal/apperr"
 	"github.com/htan06/echo-messenger-rest-api/internal/config"
 	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/model"
 )
 
 type UserClaimsAccess struct {
+	UserID    int64  `json:"user_id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Username  string `json:"username"`
@@ -33,6 +35,7 @@ func NewJWTProvider(cfg *config.JWTConfig) *JWTProvier {
 
 func (jp *JWTProvier) GenerateAccessToken(user model.User) (string, error) {
 	claim := UserClaimsAccess{
+		UserID:    user.ID,
 		FirstName: user.FirstName,
 		LastName:  *user.LastName,
 		Username:  user.Username,
@@ -52,6 +55,22 @@ func (jp *JWTProvier) GenerateAccessToken(user model.User) (string, error) {
 	return tokenSigned, nil
 }
 
+func (jp *JWTProvier) ParseAccessToken(tokenString string) (UserClaimsAccess, error) {
+	var claim UserClaimsAccess
+	token, err := jwt.ParseWithClaims(tokenString, &claim, func(token *jwt.Token) (any, error) {
+		return jp.cfg.PublicKeyAccess(), nil
+	})
+
+	if err != nil {
+		return UserClaimsAccess{}, fmt.Errorf("JWTProvider[GenerateAccessToken]: %w", err)
+	}
+
+	if !token.Valid {
+		return UserClaimsAccess{}, apperr.NewAppError(apperr.TokenInvalid)
+	}
+	return claim, nil
+}
+
 func (jp *JWTProvier) GenerateRefreshToken(user model.User) (string, error) {
 	claim := UserClaimsRefresh{
 		Username: user.Username,
@@ -69,6 +88,22 @@ func (jp *JWTProvier) GenerateRefreshToken(user model.User) (string, error) {
 		return "", fmt.Errorf("JWTProvider[GenerateRefreshToken]: %w", err)
 	}
 	return tokenSigned, nil
+}
+
+func (jp *JWTProvier) ParseRefreshToken(tokenString string) (UserClaimsRefresh, error) {
+	var claim UserClaimsRefresh
+	token, err := jwt.ParseWithClaims(tokenString, &claim, func(token *jwt.Token) (any, error) {
+		return jp.cfg.PublicKeyRefresh(), nil
+	})
+
+	if err != nil {
+		return UserClaimsRefresh{}, fmt.Errorf("JWTProvider[GenerateAccessToken]: %w", err)
+	}
+
+	if !token.Valid {
+		return UserClaimsRefresh{}, apperr.NewAppError(apperr.TokenInvalid)
+	}
+	return claim, nil
 }
 
 func (jp *JWTProvier) GenerateRegisterToken(email string) (string, error) {
@@ -94,6 +129,10 @@ func (jp *JWTProvier) ParseRegisterToken(tokenString string) (*jwt.Token, error)
 
 	if err != nil {
 		return nil, fmt.Errorf("JWTProvider[GenerateRegisterToken]: %w", err)
+	}
+
+	if !token.Valid {
+		return nil, apperr.NewAppError(apperr.TokenInvalid)
 	}
 	return token, nil
 }

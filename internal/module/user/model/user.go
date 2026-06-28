@@ -13,7 +13,7 @@ type UserActionType string
 
 const (
 	UserLocked UserStatus = "LOCKED"
-	UserActive UserStatus = "LOCKED"
+	UserActive UserStatus = "ACTIVE"
 
 	FcmService NotificationService = "FCM"
 	ApnService NotificationService = "APN"
@@ -47,13 +47,13 @@ type User struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 
-	UserRefreshTokens     []UserRefreshToken
-	UserPushNotification  []UserPushNotification
-	UserFriend            []UserFriend
-	SentFriendRequest     []SentFriendRequest
-	ReceivedFriendRequest []ReceivedFriendRequest
-	BlockedUser           []BlockedUser
-	UserHistory           []UserHistory
+	// UserRefreshTokens     []UserRefreshToken
+	// UserPushNotification  []UserPushNotification
+	// UserFriend            []UserFriend
+	// SentFriendRequest     []SentFriendRequest
+	// ReceivedFriendRequest []ReceivedFriendRequest
+	// BlockedUser           []BlockedUser
+	// UserHistory           []UserHistory
 }
 
 type UserRefreshToken struct {

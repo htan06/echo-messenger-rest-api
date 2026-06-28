@@ -7,7 +7,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/htan06/echo-messenger-rest-api/internal/config"
+	"github.com/htan06/echo-messenger-rest-api/internal/api"
 	"github.com/htan06/echo-messenger-rest-api/internal/module/auth"
+	"github.com/htan06/echo-messenger-rest-api/internal/module/user"
+	"github.com/htan06/echo-messenger-rest-api/internal/security"
 	"github.com/joho/godotenv"
 )
 
@@ -33,15 +36,21 @@ func main() {
 	}
 	
 	jwtConfig := config.GetJWTConfig(publicData, privateData)
+	jwtProvider := security.NewJWTProvider(jwtConfig)
 
 	redisConn := config.GetRedisConn()
 	postgresConn := config.GetPostgresConn()
 	gmailDialer := config.GetGmailDialer()
 	mailAddress := config.GetMailAddress()
 
-	router := gin.Default()
-	authModule := auth.InitAuthModule(postgresConn, redisConn, gmailDialer, jwtConfig, mailAddress)
-	authModule.RegisterRouter(router)
+	jwtMiddleware := api.NewJWTMiddleware(jwtProvider)
 
+	router := gin.Default()
+	v1 := router.Group("/api/v1")
+	authModule := auth.InitAuthModule(postgresConn, redisConn, gmailDialer, jwtProvider, mailAddress)
+	authModule.RegisterRouter(v1)
+
+	userModule := user.InitUserModule(postgresConn)
+	userModule.RegisterRouter(v1, jwtMiddleware.RequireAccessToken())
 	router.Run()
 }

@@ -4,21 +4,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/htan06/echo-messenger-rest-api/internal/config"
 	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/infra"
-	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/secure"
+	"github.com/htan06/echo-messenger-rest-api/internal/security"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"gopkg.in/gomail.v2"
 )
 
 type AuthModule struct {
-	authHandler *AuthenticationHandler
+	authHandler *AuthHandler
 }
 
 func InitAuthModule(
 	postgresConn *pgxpool.Pool,
 	redisConn *redis.Client,
 	dialer *gomail.Dialer,
-	jwtConfig *config.JWTConfig,
+	jwtProvider *security.JWTProvier,
 	mailAddress *config.MailAddress,
 ) *AuthModule {
 
@@ -26,8 +26,7 @@ func InitAuthModule(
 	cacheRepository := infra.NewRedisCacheRepository(redisConn)
 	emailOTPSender := infra.NewGmailOTPSender(dialer, mailAddress)
 
-	otpProvider := secure.NewOTPProvider()
-	jwtProvider := secure.NewJWTProvider(jwtConfig)
+	otpProvider := security.NewOTPProvider()
 
 	authService := NewAuthenticationService(userRepo, cacheRepository, emailOTPSender, jwtProvider, otpProvider)
 
@@ -38,10 +37,10 @@ func InitAuthModule(
 	}
 }
 
-func (am *AuthModule) RegisterRouter(r *gin.Engine, middlewares...gin.HandlerFunc) {
-	group := r.Group("/auth")
+func (am *AuthModule) RegisterRouter(r *gin.RouterGroup, middlewares...gin.HandlerFunc) {
+	auth := r.Group("/auth")
 
-	group.POST("/send-otp", am.authHandler.handleSendOTP)
-	group.POST("/verify-otp", am.authHandler.handleVerifyOTP)
-	group.POST("/register-user", am.authHandler.handleRegisterUser)
+	auth.POST("/send-otp", am.authHandler.handleSendOTP)
+	auth.POST("/verify-otp", am.authHandler.handleVerifyOTP)
+	auth.POST("/register", am.authHandler.handleRegisterUser)
 }

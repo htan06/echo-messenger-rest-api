@@ -1,4 +1,4 @@
-package secure
+package security
 
 import "math/rand/v2"
 

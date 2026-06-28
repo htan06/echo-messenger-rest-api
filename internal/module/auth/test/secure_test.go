@@ -3,11 +3,11 @@ package test
 import (
 	"testing"
 
-	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/secure"
+	"github.com/htan06/echo-messenger-rest-api/internal/security"
 )
 
 func TestRandOTP(t *testing.T) {
-	otpProvider := secure.NewOTPProvider()
+	otpProvider := security.NewOTPProvider()
 
 	otp := otpProvider.RandOTP()
 

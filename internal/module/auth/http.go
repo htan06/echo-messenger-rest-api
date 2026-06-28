@@ -7,17 +7,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AuthenticationHandler struct {
+type AuthHandler struct {
 	authService *AuthenticationService
 }
 
-func NewAuthenticationHandler(authService *AuthenticationService) *AuthenticationHandler {
-	return &AuthenticationHandler{
+func NewAuthenticationHandler(authService *AuthenticationService) *AuthHandler {
+	return &AuthHandler{
 		authService: authService,
 	}
 }
 
-func (ah *AuthenticationHandler) handleSendOTP(c *gin.Context) {
+func (ah *AuthHandler) handleSendOTP(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req SendOTPReq
@@ -34,7 +34,7 @@ func (ah *AuthenticationHandler) handleSendOTP(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (ah *AuthenticationHandler) handleVerifyOTP(c *gin.Context) {
+func (ah *AuthHandler) handleVerifyOTP(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req VerifyOTPReq
@@ -52,7 +52,7 @@ func (ah *AuthenticationHandler) handleVerifyOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, tokenResp)
 }
 
-func (ah *AuthenticationHandler) handleRegisterUser(c *gin.Context) {
+func (ah *AuthHandler) handleRegisterUser(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req RegisterUserReq
