@@ -3,7 +3,7 @@ package config
 import (
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
+	"encoding/pem"
 	"log"
 	"os"
 	"strconv"
@@ -11,73 +11,83 @@ import (
 )
 
 type JWTConfig struct {
-	privateKeyAccess  *rsa.PrivateKey
-	publicKeyAccess   *rsa.PublicKey
+	privateKeyAccess *rsa.PrivateKey
+	publicKeyAccess  *rsa.PublicKey
+	ttlAccess        time.Duration
+
 	privateKeyRefresh *rsa.PrivateKey
 	publicKeyRefresh  *rsa.PublicKey
-	ttlAccess         time.Duration
 	ttlRefresh        time.Duration
+
+	privateKeyRegister []byte
+	ttlRegister        time.Duration
 }
 
-func GetJWTConfig() *JWTConfig {
-	// PRIVATE ACCESS KEY
-	privateKeyAccessByte, err := base64.StdEncoding.DecodeString(os.Getenv("TOKEN_ACCESS_PRIVATE_KEY"))
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
-	rsaAccessPrivateKey, err := x509.ParsePKCS8PrivateKey(privateKeyAccessByte)
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
+func GetJWTConfig(publicData []byte, privateData []byte) *JWTConfig {
 
-	// PUBLIC ACCESS KEY
-	publicKeyAccessByte, err := base64.StdEncoding.DecodeString(os.Getenv("TOKEN_ACCESS_PUBLIC_KEY"))
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
-	rsaAccessPublicKey, err := x509.ParsePKIXPublicKey(publicKeyAccessByte)
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
-	
-	// PRIVATE REFRESH KEY
-	privateKeyRefreshByte, err := base64.StdEncoding.DecodeString(os.Getenv("TOKEN_REFRESH_PRIVATE_KEY"))
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
-	rsaRefreshPrivateKey, err := x509.ParsePKCS8PrivateKey(privateKeyRefreshByte)
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
-
-	// PUBLIC REFRESH KEY
-	publicKeyRefreshByte, err := base64.StdEncoding.DecodeString(os.Getenv("TOKEN_REFRESH_PUBLIC_KEY"))
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
-	rsaRefreshPublicKey, err := x509.ParsePKIXPublicKey(publicKeyRefreshByte)
-	if err != nil {
-		log.Fatal("JWT config: " + err.Error())
-	}
-
+	var jwtConfig JWTConfig
 	//TTL
 	ttlAccessToken, err := strconv.Atoi(os.Getenv("TOKEN_ACCESS_TTL"))
 	if err != nil {
 		log.Fatal("JWT config: cannot parse ttl access token: " + err.Error())
 	}
+	jwtConfig.ttlAccess = time.Second * time.Duration(ttlAccessToken)
+
 	ttlRefreshtoken, err := strconv.Atoi(os.Getenv("TOKEN_REFRESH_TTL"))
 	if err != nil {
 		log.Fatal("JWT config: cannot parse ttl refresh token: " + err.Error())
 	}
-
-	return &JWTConfig{
-		privateKeyAccess:  rsaAccessPrivateKey.(*rsa.PrivateKey),
-		publicKeyAccess:   rsaAccessPublicKey.(*rsa.PublicKey),
-		privateKeyRefresh: rsaRefreshPrivateKey.(*rsa.PrivateKey),
-		publicKeyRefresh:  rsaRefreshPublicKey.(*rsa.PublicKey),
-		ttlAccess:         time.Second * time.Duration(ttlAccessToken),
-		ttlRefresh:        time.Second * time.Duration(ttlRefreshtoken),
+	jwtConfig.ttlRefresh = time.Second * time.Duration(ttlRefreshtoken)
+	
+	ttlRegistertoken, err := strconv.Atoi(os.Getenv("TOKEN_REGISTER_TTL"))
+	if err != nil {
+		log.Fatal("JWT config: cannot parse ttl register token: " + err.Error())
 	}
+	jwtConfig.ttlRegister = time.Second * time.Duration(ttlRegistertoken)
+
+	for {
+		block, rest := pem.Decode(privateData)
+		if block == nil {
+			break
+		}
+		switch block.Type {
+		case "REFRESH PRIVATE KEY":
+			key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			jwtConfig.privateKeyRefresh = key.(*rsa.PrivateKey)
+		case "ACCESS PRIVATE KEY":
+			key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			jwtConfig.privateKeyAccess = key.(*rsa.PrivateKey)
+		case "REGISTER PRIVATE KEY":
+			jwtConfig.privateKeyRegister = block.Bytes
+		}
+		privateData = rest
+	}
+
+	for {
+		block, rest := pem.Decode(publicData)
+		if block == nil {
+			break
+		}
+		key, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		switch block.Type {
+		case "REFRESH PUBLIC KEY":
+			jwtConfig.publicKeyRefresh = key.(*rsa.PublicKey)
+		case "ACCESS PUBLIC KEY":
+			jwtConfig.publicKeyAccess = key.(*rsa.PublicKey)
+		}
+		publicData = rest
+	}
+
+	return &jwtConfig
 }
 
 func (j *JWTConfig) PrivateKeyAccess() *rsa.PrivateKey {
@@ -96,10 +106,18 @@ func (j *JWTConfig) PublicKeyRefresh() *rsa.PublicKey {
 	return j.publicKeyRefresh
 }
 
+func (j *JWTConfig) PrivateKeyRegister() []byte {
+	return j.privateKeyRegister
+}
+
 func (j *JWTConfig) TtlAccess() time.Duration {
 	return j.ttlAccess
 }
 
 func (j *JWTConfig) TtlRefresh() time.Duration {
 	return j.ttlRefresh
+}
+
+func (j *JWTConfig) TtlRegister() time.Duration {
+	return j.ttlRegister
 }

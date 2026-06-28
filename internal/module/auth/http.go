@@ -17,7 +17,7 @@ func NewAuthenticationHandler(authService *AuthenticationService) *Authenticatio
 	}
 }
 
-func (ah *AuthenticationHandler) handlerSendOTP(c *gin.Context) {
+func (ah *AuthenticationHandler) handleSendOTP(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req SendOTPReq
@@ -34,7 +34,7 @@ func (ah *AuthenticationHandler) handlerSendOTP(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (ah *AuthenticationHandler) handlerVerifyOTP(c *gin.Context) {
+func (ah *AuthenticationHandler) handleVerifyOTP(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req VerifyOTPReq
@@ -42,12 +42,30 @@ func (ah *AuthenticationHandler) handlerVerifyOTP(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 	}
 
-	token, err := ah.authService.VerifyOTP(ctx, req.Email, req.OTP)
+	tokenResp, err := ah.authService.VerifyOTP(ctx, req.Email, req.OTP)
 	if err != nil {
 		fmt.Println("ERROR: ", err.Error())
 		c.Status(http.StatusBadRequest)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"access_token": token})
+	c.JSON(http.StatusOK, tokenResp)
+}
+
+func (ah *AuthenticationHandler) handleRegisterUser(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req RegisterUserReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Status(http.StatusBadRequest)
+	}
+
+	tokenResp, err := ah.authService.RegisterUser(ctx, req)
+	if err != nil {
+		fmt.Println("ERROR: ", err.Error())
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	c.JSON(http.StatusOK, tokenResp)
 }

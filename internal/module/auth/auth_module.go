@@ -41,6 +41,7 @@ func InitAuthModule(
 func (am *AuthModule) RegisterRouter(r *gin.Engine, middlewares...gin.HandlerFunc) {
 	group := r.Group("/auth")
 
-	group.POST("/send-otp", am.authHandler.handlerSendOTP)
-	group.POST("/verify-otp", am.authHandler.handlerVerifyOTP)
+	group.POST("/send-otp", am.authHandler.handleSendOTP)
+	group.POST("/verify-otp", am.authHandler.handleVerifyOTP)
+	group.POST("/register-user", am.authHandler.handleRegisterUser)
 }

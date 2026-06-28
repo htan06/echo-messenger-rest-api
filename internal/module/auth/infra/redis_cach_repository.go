@@ -38,3 +38,10 @@ func (rcr *RedisCacheRepository) SetIfNotExists(ctx context.Context, key string,
 	}
 	return errors.New("RedisCacheRepository[Set]: " + "Key already exists")
 }
+
+func (rcr *RedisCacheRepository) Remove(ctx context.Context, key string) error {
+	if err := rcr.redisConn.Del(ctx, key).Err(); err != nil {
+		return fmt.Errorf("RedisCacheRepository[Remove]: %w", err)
+	}
+	return nil
+}

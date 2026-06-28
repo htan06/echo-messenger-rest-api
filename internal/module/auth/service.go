@@ -2,10 +2,12 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/htan06/echo-messenger-rest-api/internal/apperr"
+	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/model"
 	"github.com/htan06/echo-messenger-rest-api/internal/module/auth/secure"
 )
 
@@ -46,17 +48,92 @@ func (as *AuthenticationService) SendOTP(ctx context.Context, email string) erro
 	return nil
 }
 
-func (as *AuthenticationService) VerifyOTP(ctx context.Context, email string, receivedOtp string) (string, error) {
+func (as *AuthenticationService) VerifyOTP(ctx context.Context, email string, receivedOtp string) (TokenResp, error) {
 	key := "auth-otp-" + email
 	otp, err := as.cacheRepo.Get(ctx, key)
+
 	if err != nil || otp != receivedOtp {
-		return "", apperr.NewAppError(apperr.OTPInvalid)
+		return TokenResp{}, apperr.NewAppError(apperr.OTPInvalid)
+	}
+
+	if err := as.cacheRepo.Remove(ctx, key); err != nil {
+		return TokenResp{}, fmt.Errorf("AuthenticationService[VerifyOTP]: %w", err)
 	}
 
 	user, err := as.userRepo.GetByEmail(ctx, email)
-	if err != nil {
-		return "", fmt.Errorf("AuthenticationService[VerifyOTP]: %w", err)
+
+	if ae, ok := errors.AsType[*apperr.AppErr](err); ok && ae.Code == apperr.UserNotFound {
+		registerToken, err := as.jwtProvider.GenerateRegisterToken(email)
+		if err != nil {
+			return TokenResp{}, fmt.Errorf("AuthenticationService[VerifyOTP]: %w", err)
+		}
+
+		return TokenResp{
+			ExistsUser: false,
+			Tokens: map[string]string{
+				"register_token": registerToken,
+			},
+		}, nil
 	}
 
-	return as.jwtProvider.GenerateAccessToken(user)
+	if err != nil {
+		return TokenResp{}, fmt.Errorf("AuthenticationService[VerifyOTP]: %w", err)
+	}
+
+	accessToken, err := as.jwtProvider.GenerateAccessToken(user)
+	if err != nil {
+		return TokenResp{}, err
+	}
+
+	refreshToken, err := as.jwtProvider.GenerateRefreshToken(user)
+	if err != nil {
+		return TokenResp{}, err
+	}
+
+	return TokenResp{
+		ExistsUser: true,
+		Tokens: map[string]string{
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+		},
+	}, nil
+}
+
+func (as *AuthenticationService) RegisterUser(ctx context.Context, req RegisterUserReq) (map[string]string, error) {
+	parsedToken, err := as.jwtProvider.ParseRegisterToken(req.RegisterToken)
+	if err != nil {
+		return nil, fmt.Errorf("AuthenticationService[RegisterUser]: %w", err)
+	}
+
+	email, err := parsedToken.Claims.GetSubject()
+	if err != nil {
+		return nil, fmt.Errorf("AuthenticationService[RegisterUser]: err get email(subject field): %w", err)
+	}
+
+	user := model.User{
+		FirstName:   req.FirstName,
+		LastName:    &req.LastName,
+		Username:    req.Username,
+		PhoneNumber: req.PhoneNumber,
+		Email:       email,
+	}
+
+	if err := as.userRepo.Create(ctx, user); err != nil {
+		return nil, fmt.Errorf("AuthenticationService[RegisterUser]: %w", err)
+	}
+	
+	accessToken, err := as.jwtProvider.GenerateAccessToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := as.jwtProvider.GenerateRefreshToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+		}, nil
 }

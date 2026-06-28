@@ -15,6 +15,7 @@ type UserReposiotry interface {
 type CacheRepository interface {
 	Get(ctx context.Context, key string) (interface{}, error)
 	SetIfNotExists(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	Remove(ctx context.Context, key string) error
 }
 
 type EmailOTPSender interface {
